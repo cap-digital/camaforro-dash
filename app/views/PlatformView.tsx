@@ -24,6 +24,12 @@ function genderColor(g: string) {
   if (g === "Masculino") return CAMA.roxo;
   return "#8a6d86";
 }
+function ageOrder(name: string): number {
+  if (name.includes("+")) return 999;
+  const m = name.match(/\d+/);
+  return m ? parseInt(m[0]) : 1000;
+}
+const byAgeSort = (a: BarDatum, b: BarDatum) => ageOrder(a.name) - ageOrder(b.name);
 
 interface Rates {
   cpm: number; cpc: number; cpv: number; cpe: number;
@@ -51,18 +57,24 @@ export function PlatformView({ rows, platform }: { rows: Row[]; platform: Platfo
 
   const hasData = data.length > 0;
   const t = useMemo(() => sumRows(data), [data]);
-  const goalInvest = goals.reduce((s, g) => s + g.investimento, 0);
+
+  // metas/estratégias visíveis respeitam o filtro de estratégia
+  const visibleGoals = useMemo(
+    () => (filters.estrategia === "all" ? goals : goals.filter((g) => g.estrategia === filters.estrategia)),
+    [goals, filters.estrategia]
+  );
+  const goalInvest = visibleGoals.reduce((s, g) => s + g.investimento, 0);
 
   // metas de entrega, com realizado SEMPRE no escopo das estratégias da meta
   const goalProgress = useMemo(() => {
-    const keys = Array.from(new Set(goals.map((g) => g.metricKey)));
+    const keys = Array.from(new Set(visibleGoals.map((g) => g.metricKey)));
     return keys.map((key) => {
-      const gs = goals.filter((g) => g.metricKey === key);
+      const gs = visibleGoals.filter((g) => g.metricKey === key);
       const strats = new Set(gs.map((g) => g.estrategia));
       const realized = sumRows(data.filter((r) => strats.has(r.estrategia)))[key];
       return { key, label: gs[0].metricLabel, goal: gs.reduce((s, g) => s + g.metricGoal, 0), realized };
     });
-  }, [goals, data]);
+  }, [visibleGoals, data]);
 
   const header = (
     <SectionTitle sub={`Performance detalhada — ${platform}`} accent={color}>
@@ -72,7 +84,7 @@ export function PlatformView({ rows, platform }: { rows: Row[]; platform: Platfo
 
   if (goals.length === 0) return <div>{header}<EmptyState message="Nenhuma estratégia configurada." /></div>;
 
-  const props: ViewProps = { data, t, goals, goalProgress, goalInvest, color, hasData };
+  const props: ViewProps = { data, t, goals: visibleGoals, goalProgress, goalInvest, color, hasData };
 
   return (
     <div>
@@ -139,7 +151,7 @@ const METRIC_OPTS: { key: MetricKey; label: string }[] = [
   { key: "alcance", label: "Alcance" },
 ];
 function MetricChart({
-  data, groupFn, title, subtitle, color, chart, metricKeys, height = 280,
+  data, groupFn, title, subtitle, color, chart, metricKeys, height = 280, colorOf, sortFn,
 }: {
   data: Row[];
   groupFn: (r: Row) => string;
@@ -149,13 +161,15 @@ function MetricChart({
   chart: "bars" | "hbars" | "donut";
   metricKeys: MetricKey[];
   height?: number;
+  colorOf?: (name: string) => string;
+  sortFn?: (a: BarDatum, b: BarDatum) => number;
 }) {
   const opts = METRIC_OPTS.filter((o) => metricKeys.includes(o.key));
   const [metric, setMetric] = useState<MetricKey>(opts[0]?.key ?? "impressoes");
   const grouped: BarDatum[] = groupBy(data, groupFn)
-    .map((g) => ({ name: g.key, value: g.totals[metric] }))
+    .map((g) => ({ name: g.key, value: g.totals[metric], color: colorOf?.(g.key) }))
     .filter((x) => x.value > 0)
-    .sort((a, b) => b.value - a.value);
+    .sort(sortFn ?? ((a, b) => b.value - a.value));
   const kind = metric === "investimento" ? "currency" : "compact";
   return (
     <Card title={title} subtitle={subtitle} accent={color} className="min-w-0" action={<Select value={metric} onChange={(v) => setMetric(v as MetricKey)} options={opts.map((o) => ({ label: o.label, value: o.key }))} />}>
@@ -239,13 +253,13 @@ function MetaView(p: ViewProps) {
       ]} />
 
       {!hasData ? <EmptyState message="Sem dados no período." /> : (
-        <>
-          <div className="mt-6"><ExecGauges {...p} /></div>
+        <div className="mt-6 space-y-4">
+          <ExecGauges {...p} />
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[6fr_4fr]">
-            <MetricChart data={data} groupFn={(r) => r.idade} title="Público por faixa etária" subtitle="Escolha a métrica" color={color} chart="hbars" metricKeys={["impressoes", "engajamento", "visualizacoes", "cliques"]} height={300} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[6fr_4fr]">
+            <MetricChart data={data} groupFn={(r) => r.idade} title="Público por faixa etária" subtitle="Escolha a métrica" color={color} chart="hbars" metricKeys={["impressoes", "engajamento", "visualizacoes", "cliques"]} height={300} sortFn={byAgeSort} />
             <AnalysisBox title="Análise — Meta" accent={color}>
-              <p className="text-sm text-[var(--ink)]">Meta entrega volume com segmentação demográfica. Veja a métrica por idade no gráfico ao lado e a divisão por gênero abaixo.</p>
+              <p className="text-sm text-[var(--ink)]">Meta entrega volume com segmentação demográfica. Veja a métrica por idade e por gênero nos gráficos.</p>
               {topGender && <Insight label="Gênero dominante" value={`${topGender.name} · ${formatPercent((topGender.value / totGender) * 100)}`} color={genderColor(topGender.name)} />}
               <Insight label="Frequência" value={r.freq ? r.freq.toFixed(2).replace(".", ",") : "-"} />
               <Insight label="VTR" value={fp(r.vtr)} color={CAMA.laranja} />
@@ -253,15 +267,13 @@ function MetaView(p: ViewProps) {
             </AnalysisBox>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <WeekdayHeatmapCard data={data} rowFn={(r) => r.estrategia} title="Estratégia × dia da semana" subtitle="Intensidade da métrica por dia" color={color} metricKeys={["impressoes", "engajamento", "visualizacoes", "investimento"]} />
-            <Card title="Distribuição por gênero" subtitle="Impressões" accent={color} className="min-w-0">
-              {byGender.length ? <DonutChart data={byGender} kind="compact" /> : <EmptyState message="Sem dados de gênero." />}
-            </Card>
+            <MetricChart data={data} groupFn={(r) => r.genero} title="Distribuição por gênero" subtitle="Escolha a métrica" color={color} chart="donut" metricKeys={["impressoes", "engajamento", "visualizacoes", "cliques"]} colorOf={genderColor} />
           </div>
 
-          <div className="mt-4"><DailyCard data={data} color={color} /></div>
-        </>
+          <DailyCard data={data} color={color} />
+        </div>
       )}
       <StrategyTable data={data} goals={p.goals} color={color} />
     </>
@@ -280,7 +292,8 @@ function GoogleView(p: ViewProps) {
     for (const s of strategiesList) row[s] = sumRows(data.filter((x) => x.estrategia === s && x.data.slice(0, 10) === d.date))[areaMetric];
     return row;
   });
-  const areaSeries = strategiesList.map((s, i) => ({ key: s, label: s, color: [CAMA.laranja, CAMA.roxo, CAMA.amareloOuro][i % 3] }));
+  const areaSeries = strategiesList.map((s, i) => ({ key: s, label: s.replace(/^Visualiza[çc][ãa]o\s*/i, "") || s, color: [CAMA.laranja, CAMA.roxo, CAMA.amareloOuro][i % 3] }));
+  const areaMetricLabel = METRIC_OPTS.find((o) => o.key === areaMetric)?.label ?? "";
   const funnel = [{ name: "25%", value: t.v25 }, { name: "50%", value: t.v50 }, { name: "75%", value: t.v75 }, { name: "100%", value: t.v100 }].filter(() => t.v25 + t.v50 + t.v75 + t.v100 > 0);
 
   return (
@@ -293,20 +306,20 @@ function GoogleView(p: ViewProps) {
       ]} />
 
       {!hasData ? <EmptyState message="Sem dados no período." /> : (
-        <>
-          <div className="mt-6"><ExecGauges {...p} /></div>
+        <div className="mt-6 space-y-4">
+          <ExecGauges {...p} />
 
           <Card
-            title="CTV × Shorts ao longo do tempo"
-            subtitle="Área empilhada — escolha a métrica"
-            className="mt-4 min-w-0"
+            title={`CTV × Shorts ao longo do tempo · ${areaMetricLabel}`}
+            subtitle="Área empilhada por formato — escolha a métrica"
+            className="min-w-0"
             accent={color}
-            action={<Select value={areaMetric} onChange={(v) => setAreaMetric(v as MetricKey)} options={METRIC_OPTS.filter((o) => ["investimento", "impressoes", "visualizacoes", "engajamento"].includes(o.key)).map((o) => ({ label: o.label, value: o.key }))} />}
+            action={<Select value={areaMetric} onChange={(v) => setAreaMetric(v as MetricKey)} options={METRIC_OPTS.filter((o) => ["investimento", "impressoes", "visualizacoes", "engajamento", "cliques"].includes(o.key)).map((o) => ({ label: o.label, value: o.key }))} />}
           >
             <AreaSeries data={areaData} series={areaSeries} kind={areaMetric === "investimento" ? "currency" : "compact"} height={300} />
           </Card>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[5fr_5fr]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[5fr_5fr]">
             {funnel.length > 0 && (
               <Card title="Funil de visualização" subtitle="Retenção por quartil (estimado)" accent={color} className="min-w-0">
                 <FunnelChart data={funnel} format={formatNumber} />
@@ -321,10 +334,8 @@ function GoogleView(p: ViewProps) {
             </AnalysisBox>
           </div>
 
-          <div className="mt-4">
-            <WeekdayHeatmapCard data={data} rowFn={(r) => r.estrategia} title="Formato × dia da semana" subtitle="Intensidade da métrica por dia" color={color} metricKeys={["visualizacoes", "impressoes", "engajamento", "investimento"]} />
-          </div>
-        </>
+          <WeekdayHeatmapCard data={data} rowFn={(r) => r.estrategia} title="Formato × dia da semana" subtitle="Intensidade da métrica por dia" color={color} metricKeys={["visualizacoes", "impressoes", "engajamento", "investimento"]} />
+        </div>
       )}
       <StrategyTable data={data} goals={p.goals} color={color} />
     </>
@@ -353,8 +364,8 @@ function TiktokView(p: ViewProps) {
       ]} />
 
       {!hasData ? <EmptyState message="Sem dados no período." /> : (
-        <>
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-[4fr_6fr]">
+        <div className="mt-6 space-y-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[4fr_6fr]">
             <Card title="Execução das metas" subtitle="Realizado sobre o contratado" accent={color} className="min-w-0">
               <div className="grid grid-cols-2 gap-3">
                 <div className="min-w-0"><RadialGauge value={goalInvest ? (t.investimento / goalInvest) * 100 : 0} label="Orçamento" color={CAMA.amareloOuro} height={140} /><p className="mt-1 text-center text-xs font-bold">Orçamento</p><p className="truncate text-center text-[10px] text-[var(--muted)]">{fcc(t.investimento)} / {fcc(goalInvest)}</p></div>
@@ -366,7 +377,7 @@ function TiktokView(p: ViewProps) {
             </Card>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[5fr_5fr]">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[5fr_5fr]">
             {funnel.length > 0 && (
               <Card title="Funil de retenção" subtitle="De 2s até 100% assistido" accent={color} className="min-w-0">
                 <FunnelChart data={funnel} format={formatNumber} />
@@ -381,9 +392,14 @@ function TiktokView(p: ViewProps) {
             </AnalysisBox>
           </div>
 
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <MetricChart data={data} groupFn={(r) => r.idade} title="Público por faixa etária" subtitle="Escolha a métrica" color={color} chart="hbars" metricKeys={["visualizacoes", "impressoes", "cliques", "investimento"]} height={280} sortFn={byAgeSort} />
+            <MetricChart data={data} groupFn={(r) => r.genero} title="Distribuição por gênero" subtitle="Escolha a métrica" color={color} chart="donut" metricKeys={["visualizacoes", "impressoes", "cliques", "investimento"]} colorOf={genderColor} />
+          </div>
+
           <MetricChart data={data} groupFn={(r) => r.criativo} title="Top criativos" subtitle="Escolha a métrica" color={color} chart="hbars" metricKeys={["visualizacoes", "impressoes", "investimento", "cliques"]} height={320} />
-          <div className="mt-4"><DailyCard data={data} color={color} /></div>
-        </>
+          <DailyCard data={data} color={color} />
+        </div>
       )}
     </>
   );

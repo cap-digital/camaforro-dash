@@ -35,6 +35,14 @@ interface ApiResponse {
  *  v25..v100     -> quartis de vídeo (contagens)
  */
 
+function firstNonEmpty(raw: RawRow, keys: string[]): string {
+  for (const k of keys) {
+    const v = raw[k];
+    if (v !== undefined && v !== null && String(v).trim() !== "") return String(v);
+  }
+  return "";
+}
+
 function baseRow(raw: RawRow, plataforma: Platform): Row {
   return {
     data: String(raw["date"] ?? "").slice(0, 10),
@@ -43,7 +51,12 @@ function baseRow(raw: RawRow, plataforma: Platform): Row {
     criativo: String(raw["ad_name"] ?? "").trim() || "(sem nome)",
     idade: normAge(String(raw["age"] ?? "").trim()),
     genero: normGender(String(raw["gender"] ?? "").trim()),
-    thumbnail: String(raw["thumbnail_url"] ?? raw["video_thumbnail_url"] ?? raw["image_url"] ?? raw["ad_image_ad_image_url"] ?? "").trim(),
+    thumbnail: String(
+      firstNonEmpty(raw, [
+        "thumbnail_url", "video_thumbnail_url", "thumbnailurl", "thumbnailURL", "thumbnail",
+        "image_url", "ad_image_ad_image_url", "video_url", "youtube_url", "final_url", "ad_final_url", "url", "link",
+      ])
+    ).trim(),
     plataforma,
     estrategia: String(raw["Estratégia "] ?? raw["Estratégia"] ?? raw["estrategia"] ?? "").trim() || "—",
     investimento: toNumber(raw["Investimento"]),
@@ -104,6 +117,9 @@ function normStreaming(raw: RawRow, plataforma: Platform): Row {
 function normAge(a: string): string {
   const l = a.toLowerCase();
   if (!l || l === "unknown" || l === "none") return "N/D";
+  // TikTok usa "AGE_25_34", "AGE_55_100" → "25-34", "55+"
+  const m = a.match(/^age_(\d+)_(\d+)$/i);
+  if (m) return parseInt(m[2]) >= 100 ? `${m[1]}+` : `${m[1]}-${m[2]}`;
   return a;
 }
 
