@@ -3,25 +3,112 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Tema Camaforró — quente e festivo (São João de Camaçari) */
+  --bg: #fbf3e3; /* creme quente */
+  --bg-soft: #f6ead2;
+  --card: #ffffff;
+  --ink: #2e0f35; /* roxo profundo */
+  --muted: #8a6d86; /* roxo acinzentado */
+  --border: #ecdcc4; /* borda cor de palha */
+
+  --roxo: #722b7c;
+  --magenta: #a11d80;
+  --vermelho: #e73a37;
+  --amarelo: #f2d000;
+  --amarelo-ouro: #ffc20e;
+  --laranja: #f0862a;
+  --verde: #02813f;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Títulos com a fonte de display festiva */
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-display), var(--font-sans), sans-serif;
+}
+
+/* Scrollbar quente */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #e4c89a;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background: rgba(114, 43, 124, 0.18);
+}
+
+/* Faixa de bandeirinhas (festoon) em CSS — assinatura do São João */
+.bandeirinhas {
+  height: 22px;
+  background-image: linear-gradient(
+    45deg,
+    transparent 33.33%,
+    currentColor 33.33%,
+    currentColor 66.66%,
+    transparent 66.66%
+  );
+  background-size: 28px 22px;
+  background-repeat: repeat-x;
+}
+
+.bandeirinhas-row {
+  display: flex;
+}
+.bandeirinhas-row > span {
+  flex: 1;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes swaySoft {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .fade-in {
+    animation: fadeIn 0.28s ease-out;
+  }
+  .anim-sway {
+    animation: swaySoft 4s ease-in-out infinite;
+    transform-origin: top center;
   }
 }
