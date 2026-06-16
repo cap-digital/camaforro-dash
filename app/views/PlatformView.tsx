@@ -84,7 +84,7 @@ export function PlatformView({ rows, platform }: { rows: Row[]; platform: Platfo
 
   if (goals.length === 0) return <div>{header}<EmptyState message="Nenhuma estratégia configurada." /></div>;
 
-  const props: ViewProps = { data, t, goals: visibleGoals, goalProgress, goalInvest, color, hasData };
+  const props: ViewProps = { data, t, goals: visibleGoals, goalProgress, goalInvest, color, hasData, estrategiaFilter: filters.estrategia };
 
   return (
     <div>
@@ -107,6 +107,7 @@ interface ViewProps {
   goalInvest: number;
   color: string;
   hasData: boolean;
+  estrategiaFilter: string;
 }
 
 // ---------- KPIs: métrica como big number + custos/taxas embaixo ----------
@@ -358,8 +359,13 @@ function PmaxSearchTermsCard({ data, color }: { data: Row[]; color: string }) {
 
 // ============ GOOGLE ============
 function GoogleView(p: ViewProps) {
-  const { data, t, color, hasData } = p;
+  const { data, t, color, hasData, estrategiaFilter } = p;
   const r = rates(t);
+  // Na estratégia de Tráfego, o foco é Cliques: vira o big number e Engajamentos vai para o sub
+  const isTrafego = estrategiaFilter === "Tráfego";
+  const engClickKpi = isTrafego
+    ? { label: "Cliques", value: hasData ? fn(t.cliques) : "-", accent: CAMA.magenta, subs: [{ label: "Engajamentos", value: fn(t.engajamento) }, { label: "CPC", value: fc(r.cpc) }] }
+    : { label: "Engajamentos", value: hasData ? fn(t.engajamento) : "-", accent: CAMA.magenta, subs: [{ label: "Cliques", value: fn(t.cliques) }, { label: "CPC", value: fc(r.cpc) }] };
   const strategiesList = Array.from(new Set(data.map((x) => x.estrategia)));
   const [areaMetric, setAreaMetric] = useState<MetricKey>("visualizacoes");
   const daily = dailyTotals(data);
@@ -375,10 +381,10 @@ function GoogleView(p: ViewProps) {
   return (
     <>
       <StatKpis items={[
-        { label: "Investimento", value: hasData ? fcc(t.investimento) : "-", accent: CAMA.amareloOuro, subs: [{ label: "CPV", value: fc(r.cpv) }, { label: "CPM", value: fc(r.cpm) }] },
+        { label: "Investimento", value: hasData ? fcc(t.investimento) : "-", accent: CAMA.amareloOuro, subs: [] },
         { label: "Visualizações", value: hasData ? fn(t.visualizacoes) : "-", accent: CAMA.laranja, subs: [{ label: "VTR", value: fp(r.vtr) }, { label: "CPV", value: fc(r.cpv) }] },
         { label: "Impressões", value: hasData ? fn(t.impressoes) : "-", accent: CAMA.roxo, subs: [{ label: "CPM", value: fc(r.cpm) }, { label: "CTR", value: fp(r.ctr) }] },
-        { label: "Engajamentos", value: hasData ? fn(t.engajamento) : "-", accent: CAMA.magenta, subs: [{ label: "Cliques", value: fn(t.cliques) }, { label: "CPC", value: fc(r.cpc) }] },
+        engClickKpi,
       ]} />
 
       {!hasData ? <EmptyState message="Sem dados no período." /> : (

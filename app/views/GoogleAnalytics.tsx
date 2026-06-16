@@ -59,6 +59,62 @@ function color(i: number) {
   return CAMA_PALETTE[i % CAMA_PALETTE.length];
 }
 
+// Tradução dos canais (sessionDefaultChannelGroup) do GA4 para PT-BR
+const CHANNEL_PT: Record<string, string> = {
+  "direct": "Direto",
+  "organic search": "Pesquisa orgânica",
+  "paid search": "Pesquisa paga",
+  "organic social": "Social orgânico",
+  "paid social": "Social pago",
+  "paid other": "Outros pagos",
+  "organic video": "Vídeo orgânico",
+  "paid video": "Vídeo pago",
+  "email": "E-mail",
+  "affiliates": "Afiliados",
+  "referral": "Referência",
+  "display": "Display",
+  "paid shopping": "Compras pagas",
+  "organic shopping": "Compras orgânicas",
+  "audio": "Áudio",
+  "sms": "SMS",
+  "mobile push notifications": "Notificações push",
+};
+
+// Canais a ocultar
+const CHANNEL_HIDE = new Set(["unassigned", "cross-network"]);
+
+// Tradução dos eventos (eventName) do GA4 para PT-BR
+const EVENT_PT: Record<string, string> = {
+  "page_view": "Visualização de página",
+  "session_start": "Início de sessão",
+  "first_visit": "Primeira visita",
+  "user_engagement": "Engajamento do usuário",
+  "scroll": "Rolagem",
+  "click": "Clique",
+  "view_search_results": "Resultado de pesquisa",
+  "view_item": "Visualização de item",
+  "view_item_list": "Visualização de lista",
+  "select_item": "Seleção de item",
+  "view_promotion": "Visualização de promoção",
+  "select_promotion": "Seleção de promoção",
+  "file_download": "Download de arquivo",
+  "video_start": "Início de vídeo",
+  "video_progress": "Progresso de vídeo",
+  "video_complete": "Vídeo concluído",
+  "form_start": "Início de formulário",
+  "form_submit": "Envio de formulário",
+  "purchase": "Compra",
+  "add_to_cart": "Adição ao carrinho",
+  "begin_checkout": "Início de checkout",
+};
+
+// Valores a ocultar em cidades
+const CITY_HIDE = new Set(["(not set)", "not set"]);
+
+function translate(map: Record<string, string>, value: string) {
+  return map[value.trim().toLowerCase()] ?? value;
+}
+
 function truncate(s: string, n = 30) {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
@@ -106,7 +162,7 @@ export function GoogleAnalytics() {
             dimensions: [{ name: "sessionDefaultChannelGroup" }],
             metrics: [{ name: "sessions" }],
             orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
-            limit: 8,
+            limit: 10,
           },
           {
             dateRanges,
@@ -133,7 +189,7 @@ export function GoogleAnalytics() {
             dimensions: [{ name: "city" }],
             metrics: [{ name: "totalUsers" }],
             orderBys: [{ metric: { metricName: "totalUsers" }, desc: true }],
-            limit: 8,
+            limit: 10,
           },
           {
             dateRanges,
@@ -164,11 +220,11 @@ export function GoogleAnalytics() {
           views: metricNum(r, 2),
         })),
         dailySessions: dailyRows.map((r) => metricNum(r, 0)),
-        channels: toBars(channels),
+        channels: toBars(channels, undefined, { translate: CHANNEL_PT, hide: CHANNEL_HIDE }),
         devices: toBars(devices),
         pages: toBars(pages, 30),
-        events: toBars(events, 28),
-        cities: toBars(cities, 28),
+        events: toBars(events, 28, { translate: EVENT_PT }),
+        cities: toBars(cities, 28, { hide: CITY_HIDE }),
         sourceMedium: (srcMed.rows ?? []).map((r) => ({
           origem: dimVal(r),
           sessions: metricNum(r, 0),
@@ -326,13 +382,25 @@ export function GoogleAnalytics() {
   );
 }
 
-function toBars(report: Ga4Report, truncN?: number): BarDatum[] {
+function toBars(
+  report: Ga4Report,
+  truncN?: number,
+  opts?: { translate?: Record<string, string>; hide?: Set<string> },
+): BarDatum[] {
   return (report.rows ?? [])
-    .map((r, i) => ({
-      name: truncN ? truncate(dimVal(r) || "(não definido)", truncN) : dimVal(r) || "(não definido)",
-      value: metricNum(r, 0),
-      color: color(i),
-    }))
+    .filter((r) => {
+      const raw = dimVal(r);
+      return !opts?.hide?.has(raw.trim().toLowerCase()) && !opts?.hide?.has(raw);
+    })
+    .map((r, i) => {
+      const raw = dimVal(r) || "(não definido)";
+      const label = opts?.translate ? translate(opts.translate, raw) : raw;
+      return {
+        name: truncN ? truncate(label, truncN) : label,
+        value: metricNum(r, 0),
+        color: color(i),
+      };
+    })
     .filter((b) => b.value > 0);
 }
 
