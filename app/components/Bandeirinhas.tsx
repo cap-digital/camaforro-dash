@@ -19,7 +19,6 @@ export function Bandeirinhas({ count = 24, className = "" }: { count?: number; c
             borderLeft: "0.6vw solid transparent",
             borderRight: "0.6vw solid transparent",
             borderTop: `1.1rem solid ${c}`,
-            maxWidth: 34,
           }}
         />
       ))}

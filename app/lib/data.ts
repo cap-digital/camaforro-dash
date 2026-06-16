@@ -13,6 +13,7 @@ interface ApiResponse {
   success?: boolean;
   meta?: RawRow[];
   google?: RawRow[];
+  googlePmax?: RawRow[];
   tiktok?: RawRow[];
   spotify?: RawRow[];
   deezer?: RawRow[];
@@ -47,7 +48,7 @@ function baseRow(raw: RawRow, plataforma: Platform): Row {
   return {
     data: String(raw["date"] ?? "").slice(0, 10),
     campanha: String(raw["campaign"] ?? "").trim(),
-    grupo: String(raw["adset_name"] ?? raw["ad_group_name"] ?? "").trim(),
+    grupo: String(raw["adset_name"] ?? raw["ad_group_name"] ?? raw["asset_group_name"] ?? "").trim(),
     criativo: String(raw["ad_name"] ?? "").trim() || "(sem nome)",
     idade: normAge(String(raw["age"] ?? "").trim()),
     genero: normGender(String(raw["gender"] ?? "").trim()),
@@ -95,6 +96,17 @@ function normGoogle(raw: RawRow): Row {
   r.v50 = Math.round(toNumber(raw["video_quartile50_rate"]) * imp);
   r.v75 = Math.round(toNumber(raw["video_quartile75_rate"]) * imp);
   r.v100 = Math.round(toNumber(raw["video_quartile100_rate"]) * imp);
+  return r;
+}
+
+// Google Performance Max (aba "googlePmax") — estratégia de Tráfego.
+// É campanha do Google, então entra como plataforma "Google": só tem
+// spend/impressões/cliques (sem engajamento nem quartis de vídeo) e
+// agrupa por "asset_group_name" no lugar do criativo.
+function normGooglePmax(raw: RawRow): Row {
+  const r = baseRow(raw, "Google");
+  if (r.criativo === "(sem nome)" && r.grupo) r.criativo = r.grupo;
+  r.searchTerms = String(raw["Search Terms"] ?? raw["search_terms"] ?? "").trim();
   return r;
 }
 
@@ -147,6 +159,7 @@ export async function fetchData(): Promise<{ rows: Row[]; timestamp: string }> {
   const rows: Row[] = [
     ...(json.meta ?? []).map(normMeta),
     ...(json.google ?? []).map(normGoogle),
+    ...(json.googlePmax ?? []).map(normGooglePmax),
     ...(json.tiktok ?? []).map(normTiktok),
     ...(json.spotify ?? []).map((r) => normStreaming(r, "Spotify")),
     ...(json.deezer ?? []).map((r) => normStreaming(r, "Deezer")),

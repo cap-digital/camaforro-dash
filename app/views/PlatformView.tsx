@@ -280,6 +280,82 @@ function MetaView(p: ViewProps) {
   );
 }
 
+// ---------- Termos de busca do Performance Max (Tráfego) ----------
+function PmaxSearchTermsCard({ data, color }: { data: Row[]; color: string }) {
+  const pmax = data.filter((r) => r.searchTerms);
+  if (!pmax.length) return null;
+
+  const groups = groupBy(pmax, (r) => r.grupo || "—")
+    .map((g) => {
+      const terms = Array.from(
+        new Set(g.rows.flatMap((r) => (r.searchTerms ?? "").split(",").map((s) => s.trim()).filter(Boolean)))
+      );
+      return { grupo: g.key, terms, t: g.totals, d: derived(g.totals) };
+    })
+    .sort((a, b) => b.t.investimento - a.t.investimento);
+
+  const tot = sumRows(pmax);
+  const totD = derived(tot);
+  const totCtr = tot.impressoes ? (tot.cliques / tot.impressoes) * 100 : 0;
+  const ctrOf = (g: (typeof groups)[number]) => (g.t.impressoes ? (g.t.cliques / g.t.impressoes) * 100 : 0);
+
+  const numCell = "px-3 py-3 text-right tabular-nums font-medium text-[var(--ink)]";
+  const head = "px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]";
+
+  return (
+    <Card title="Termos de busca · PMax (Tráfego)" subtitle="Custos e taxas por grupo de ativos" accent={color} className="min-w-0">
+      <div className="-mx-4 overflow-x-auto sm:mx-0">
+        <table className="w-full min-w-[820px] border-collapse text-sm">
+          <thead>
+            <tr className="border-b border-[var(--border)]">
+              <th className={`${head} text-left`}>Grupo de ativos</th>
+              <th className={`${head} text-left`}>Termos de busca</th>
+              <th className={`${head} text-right`}>Invest.</th>
+              <th className={`${head} text-right`}>Impr.</th>
+              <th className={`${head} text-right`}>Cliques</th>
+              <th className={`${head} text-right`}>CTR</th>
+              <th className={`${head} text-right`}>CPC</th>
+              <th className={`${head} text-right`}>CPM</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g) => (
+              <tr key={g.grupo} className="border-b border-[var(--border)] align-top last:border-0 hover:bg-gray-50">
+                <td className="px-3 py-3 text-left font-semibold text-[var(--ink)]">{g.grupo}</td>
+                <td className="px-3 py-3 text-left">
+                  <div className="flex max-w-[360px] flex-wrap gap-1">
+                    {g.terms.map((term) => (
+                      <span key={term} className="rounded-md bg-[var(--bg-soft)] px-2 py-0.5 text-xs text-[var(--ink)]">{term}</span>
+                    ))}
+                  </div>
+                </td>
+                <td className={numCell}>{fcc(g.t.investimento)}</td>
+                <td className={numCell}>{fn(g.t.impressoes)}</td>
+                <td className={numCell}>{fn(g.t.cliques)}</td>
+                <td className={numCell}>{fp(ctrOf(g))}</td>
+                <td className={numCell}>{fc(g.d.cpc)}</td>
+                <td className={numCell}>{fc(g.d.cpm)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-[var(--border)] font-bold">
+              <td className="px-3 py-3 text-left text-[var(--ink)]">Total</td>
+              <td className="px-3 py-3" />
+              <td className={numCell}>{fcc(tot.investimento)}</td>
+              <td className={numCell}>{fn(tot.impressoes)}</td>
+              <td className={numCell}>{fn(tot.cliques)}</td>
+              <td className={numCell}>{fp(totCtr)}</td>
+              <td className={numCell}>{fc(totD.cpc)}</td>
+              <td className={numCell}>{fc(totD.cpm)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 // ============ GOOGLE ============
 function GoogleView(p: ViewProps) {
   const { data, t, color, hasData } = p;
@@ -333,6 +409,8 @@ function GoogleView(p: ViewProps) {
               <Insight label="Engajamentos" value={fn(t.engajamento)} color={CAMA.magenta} />
             </AnalysisBox>
           </div>
+
+          <PmaxSearchTermsCard data={data} color={color} />
 
           <WeekdayHeatmapCard data={data} rowFn={(r) => r.estrategia} title="Formato × dia da semana" subtitle="Intensidade da métrica por dia" color={color} metricKeys={["visualizacoes", "impressoes", "engajamento", "investimento"]} />
         </div>

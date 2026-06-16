@@ -19,7 +19,7 @@ export function Landing({ onEnter }: { onEnter: () => void }) {
       <img src="/assets/brand/estrelinha-amarela.svg" alt="" aria-hidden className="pointer-events-none absolute right-[8%] top-[26%] hidden w-10 anim-sway sm:block" />
       <img src="/assets/brand/estrelinha-laranja.svg" alt="" aria-hidden className="pointer-events-none absolute bottom-[14%] left-[12%] hidden w-8 anim-sway sm:block" />
       <img src="/assets/brand/fogueira.svg" alt="" aria-hidden className="pointer-events-none absolute bottom-0 right-[-2%] w-40 sm:right-[4%] sm:w-56" />
-      <img src="/assets/brand/sanfona.svg" alt="" aria-hidden className="pointer-events-none absolute bottom-[6%] left-[-2%] hidden w-44 anim-sway sm:block" />
+      <img src="/assets/brand/sanfona.svg" alt="" aria-hidden className="pointer-events-none absolute bottom-[6%] left-3 hidden w-44 anim-sway sm:left-6 sm:block" />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
         <img src="/assets/brand/logocamaforro.svg" alt="Camaforró 2026" className="w-64 max-w-[80vw] drop-shadow-[0_8px_18px_rgba(46,15,53,0.18)] sm:w-80" />

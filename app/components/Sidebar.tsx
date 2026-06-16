@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { BarChart3 } from "lucide-react";
 import { PLATFORM_COLORS } from "../lib/types";
 
 interface Leaf {
@@ -148,6 +149,7 @@ export function Sidebar({
 
           <Item leaf={{ route: "criativos", label: "Criativos", icon: <IconImage />, color: "#A11D80" }} active={route === "criativos"} collapsed={collapsed} onClick={() => go("criativos")} />
           <Item leaf={{ route: "metas", label: "Metas", icon: <IconTarget />, color: "#E73A37" }} active={route === "metas"} collapsed={collapsed} onClick={() => go("metas")} />
+          <Item leaf={{ route: "analytics", label: "Google Analytics", icon: <BarChart3 size={18} strokeWidth={2} />, color: "#F0862A" }} active={route === "analytics"} collapsed={collapsed} onClick={() => go("analytics")} />
         </nav>
 
         {!collapsed && (

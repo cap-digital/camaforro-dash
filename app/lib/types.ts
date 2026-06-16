@@ -14,6 +14,7 @@ export interface Row {
   thumbnail: string;
   plataforma: Platform;
   estrategia: string;
+  searchTerms?: string; // termos de busca (Google Performance Max)
   // métricas numéricas (já conciliadas entre as abas)
   investimento: number; // valor faturado (coluna "Investimento")
   spend: number; // investimento de mídia bruto (spend)

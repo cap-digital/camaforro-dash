@@ -11,8 +11,9 @@ import { Platforms } from "./views/Platforms";
 import { PlatformView } from "./views/PlatformView";
 import { Creatives } from "./views/Creatives";
 import { Goals } from "./views/Goals";
+import { GoogleAnalytics } from "./views/GoogleAnalytics";
 
-const VALID = ["overview", "plataformas", "meta", "google", "tiktok", "spotify", "deezer", "criativos", "metas"];
+const VALID = ["overview", "plataformas", "meta", "google", "tiktok", "spotify", "deezer", "criativos", "metas", "analytics"];
 
 const PLATFORM_ROUTES: Record<string, "Meta" | "Google" | "TikTok" | "Spotify" | "Deezer"> = {
   meta: "Meta",
@@ -100,16 +101,25 @@ export default function App() {
         </button>
 
         <main className="mx-auto max-w-7xl px-4 py-5 pt-16 sm:px-6 sm:py-7 lg:pt-7">
-          {error && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              Não foi possível carregar os dados: {error}
+          {route === "analytics" ? (
+            // Google Analytics tem fonte de dados própria (GA4 Data API) — independe do Supabase
+            <div key="analytics" className="fade-in">
+              <GoogleAnalytics />
             </div>
-          )}
-          {!error && rows === null && <Loading />}
-          {!error && rows && (
-            <div key={route} className="fade-in">
-              <Page route={route} rows={rows} navigate={navigate} />
-            </div>
+          ) : (
+            <>
+              {error && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  Não foi possível carregar os dados: {error}
+                </div>
+              )}
+              {!error && rows === null && <Loading />}
+              {!error && rows && (
+                <div key={route} className="fade-in">
+                  <Page route={route} rows={rows} navigate={navigate} />
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
