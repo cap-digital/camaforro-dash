@@ -44,7 +44,6 @@ interface Parsed {
     engagementRate: number; // 0-1
     avgSessionDuration: number; // segundos
     eventCount: number;
-    bounceRate: number; // 0-1
   };
   daily: { name: string; sessions: number; usuarios: number; views: number }[];
   dailySessions: number[];
@@ -94,7 +93,6 @@ export function GoogleAnalytics() {
               { name: "engagementRate" },
               { name: "averageSessionDuration" },
               { name: "eventCount" },
-              { name: "bounceRate" },
             ],
           },
           {
@@ -158,7 +156,6 @@ export function GoogleAnalytics() {
           engagementRate: tRow ? metricNum(tRow, 4) : 0,
           avgSessionDuration: tRow ? metricNum(tRow, 5) : 0,
           eventCount: tRow ? metricNum(tRow, 6) : 0,
-          bounceRate: tRow ? metricNum(tRow, 7) : 0,
         },
         daily: dailyRows.map((r) => ({
           name: shortDate(ga4DateToIso(dimVal(r))),
@@ -238,16 +235,23 @@ export function GoogleAnalytics() {
 
       {!error && data && t && (
         <div className="space-y-4">
-          {/* KPIs */}
+          {/* KPIs — 4 em cima, 3 centralizados embaixo */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KpiCard label="Sessões" value={formatInt(t.sessions)} accent={ACCENT} spark={data.dailySessions} hint={`${formatInt(t.totalUsers)} usuários`} />
             <KpiCard label="Usuários" value={formatInt(t.totalUsers)} accent={CAMA.roxo} hint={`${formatInt(t.newUsers)} novos`} />
             <KpiCard label="Visualizações" value={formatInt(t.pageViews)} accent={CAMA.magenta} hint="Páginas/telas vistas" />
             <KpiCard label="Eventos" value={formatNumber(t.eventCount)} accent={CAMA.verde} hint="Contagem de eventos" />
-            <KpiCard label="Taxa de engajamento" value={formatPercent(t.engagementRate * 100)} accent={CAMA.amareloOuro} hint="Sessões engajadas" />
-            <KpiCard label="Taxa de rejeição" value={formatPercent(t.bounceRate * 100)} accent={CAMA.vermelho} hint="Bounce rate" />
-            <KpiCard label="Duração média" value={fmtDuration(t.avgSessionDuration)} accent={CAMA.laranjaQuente} hint="Por sessão" />
-            <KpiCard label="Novos usuários" value={formatInt(t.newUsers)} accent={CAMA.roxo} hint={insights ? `${formatPercent(insights.newPct)} do total` : undefined} />
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {[
+              <KpiCard key="eng" label="Taxa de engajamento" value={formatPercent(t.engagementRate * 100)} accent={CAMA.amareloOuro} hint="Sessões engajadas" />,
+              <KpiCard key="dur" label="Duração média" value={fmtDuration(t.avgSessionDuration)} accent={CAMA.laranjaQuente} hint="Por sessão" />,
+              <KpiCard key="new" label="Novos usuários" value={formatInt(t.newUsers)} accent={CAMA.roxo} hint={insights ? `${formatPercent(insights.newPct)} do total` : undefined} />,
+            ].map((card, i) => (
+              <div key={i} className="shrink-0 grow-0 basis-[calc((100%-0.75rem)/2)] lg:basis-[calc((100%-2.25rem)/4)]">
+                {card}
+              </div>
+            ))}
           </div>
 
           {/* evolução diária */}
