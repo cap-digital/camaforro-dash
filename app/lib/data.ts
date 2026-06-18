@@ -120,9 +120,22 @@ function normTiktok(raw: RawRow): Row {
   return r;
 }
 
+// Spotify / Deezer (abas "spotify" / "deezer") — estratégia de Streaming.
+// A base traz poucas métricas, com cabeçalhos em MAIÚSCULAS e por dia:
+// DATE, IMPRESSIONS, VIEWS, CLICKS, CTR, "ÁUDIOS COMPLETOS" (escutas).
+// Não há coluna de investimento, campanha, criativo nem demografia.
 function normStreaming(raw: RawRow, plataforma: Platform): Row {
   const r = baseRow(raw, plataforma);
-  r.escutas = toNumber(raw["streams"] ?? raw["listens"] ?? raw["plays"] ?? raw["escutas"] ?? raw["streamings"]);
+  r.data = String(raw["DATE"] ?? raw["date"] ?? "").slice(0, 10);
+  r.campanha = r.campanha || "Streaming";
+  r.estrategia = r.estrategia !== "—" ? r.estrategia : "Streaming";
+  r.impressoes = toNumber(raw["IMPRESSIONS"] ?? raw["impressions"]);
+  r.visualizacoes = toNumber(raw["VIEWS"] ?? raw["views"]);
+  r.cliques = toNumber(raw["CLICKS"] ?? raw["clicks"]);
+  r.escutas = toNumber(
+    raw["ÁUDIOS COMPLETOS"] ?? raw["AUDIOS COMPLETOS"] ?? raw["streams"] ??
+    raw["listens"] ?? raw["plays"] ?? raw["escutas"] ?? raw["streamings"]
+  );
   return r;
 }
 

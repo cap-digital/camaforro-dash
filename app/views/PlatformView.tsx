@@ -9,7 +9,7 @@ import {
   AreaSeries, BarDatum, DonutChart, FunnelChart, Heatmap, HorizontalBars,
   RadialGauge, ScatterBubble, TimeSeries,
 } from "../components/charts";
-import { AnalysisBox, BigStat, Card, EmptyState, Insight, SectionTitle, Select, StatCard } from "../components/ui";
+import { AnalysisBox, Card, EmptyState, Insight, SectionTitle, Select, StatCard } from "../components/ui";
 import { Column, DataTable } from "../components/DataTable";
 import { applyFilters, DEFAULT_FILTERS, FilterBar, FilterState } from "../components/Filters";
 
@@ -90,7 +90,7 @@ export function PlatformView({ rows, platform }: { rows: Row[]; platform: Platfo
     <div>
       {header}
       <FilterBar rows={platformRows} filters={filters} onChange={setFilters} strategies={strategies} accent={color} />
-      {(platform === "Spotify" || platform === "Deezer") && <StreamingPending platform={platform} goals={goals} color={color} totals={t} hasData={hasData} />}
+      {(platform === "Spotify" || platform === "Deezer") && <StreamingView platform={platform} goals={goals} color={color} totals={t} data={data} hasData={hasData} />}
       {platform === "Meta" && <MetaView {...props} />}
       {platform === "Google" && <GoogleView {...props} />}
       {platform === "TikTok" && <TiktokView {...props} />}
@@ -490,28 +490,80 @@ function TiktokView(p: ViewProps) {
 }
 
 // ============ STREAMING (Spotify / Deezer) ============
-function StreamingPending({
-  platform, goals, color, totals, hasData,
+// A base de streaming traz poucas métricas (impressões, visualizações, cliques,
+// CTR e áudios completos = escutas) e não tem coluna de investimento. Por isso,
+// o investimento aparece como o valor CONTRATADO (fixo), não realizado.
+function StreamingView({
+  platform, goals, color, totals, data, hasData,
 }: {
   platform: Platform;
   goals: ReturnType<typeof goalsOf>;
   color: string;
   totals: Totals;
+  data: Row[];
   hasData: boolean;
 }) {
   const g = goals[0];
+  const t = totals;
+  const ctr = t.impressoes ? (t.cliques / t.impressoes) * 100 : 0;
+  const completionRate = t.visualizacoes ? (t.escutas / t.visualizacoes) * 100 : 0; // áudios completos sobre visualizações
+  const escutasPct = g.metricGoal ? (t.escutas / g.metricGoal) * 100 : 0;
+  const daily = dailyTotals(data).map((d) => ({
+    name: shortDate(d.date),
+    escutas: d.totals.escutas,
+    impressoes: d.totals.impressoes,
+    cliques: d.totals.cliques,
+  }));
+
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <BigStat label="Investimento contratado" value={formatCurrency(g.investimento, true)} accent={CAMA.amareloOuro} sub={`Estratégia ${g.estrategia}`} />
-        <BigStat label="Meta de escutas" value={formatNumber(g.metricGoal)} accent={CAMA.verde} sub="Streaming contratado" />
-        <BigStat label="Escutas realizadas" value={hasData ? formatNumber(totals.escutas) : "-"} accent={color} sub={hasData ? `${formatInt((totals.escutas / g.metricGoal) * 100)}%` : "Aguardando dados"} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Escutas (áudios completos)" value={hasData ? fn(t.escutas) : "-"} accent={color} subs={[{ label: "Meta", value: formatNumber(g.metricGoal) }, { label: "Atingido", value: fp(escutasPct) }]} />
+        <StatCard label="Impressões" value={hasData ? fn(t.impressoes) : "-"} accent={CAMA.roxo} subs={[{ label: "Visualizações", value: fn(t.visualizacoes) }, { label: "Conclusão", value: fp(completionRate) }]} />
+        <StatCard label="Cliques" value={hasData ? fn(t.cliques) : "-"} accent={CAMA.vermelho} subs={[{ label: "CTR", value: fp(ctr) }]} />
+        {/* Sem coluna de investimento na base → mostra o valor contratado (fixo) */}
+        <StatCard label="Investimento contratado" value={fcc(g.investimento)} accent={CAMA.amareloOuro} subs={[{ label: "Estratégia", value: g.estrategia }]} />
       </div>
-      <div className="mt-5 flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] p-10 text-center">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.6"><path d="M4 14a8 8 0 0 1 16 0" /><rect x="3" y="13" width="4" height="7" rx="1.5" /><rect x="17" y="13" width="4" height="7" rx="1.5" /></svg>
-        <p className="text-lg font-bold text-[var(--ink)]">Dados de streaming ainda não disponíveis</p>
-        <p className="max-w-md text-sm text-[var(--muted)]">A campanha de <strong>{g.estrategia}</strong> no <strong>{platform}</strong> está contratada por {formatCurrency(g.investimento)} com meta de {formatNumber(g.metricGoal)} escutas. Os dados aparecerão aqui quando a base de {platform} for alimentada.</p>
-      </div>
+
+      {!hasData ? (
+        <EmptyState message="Sem dados no período." />
+      ) : (
+        <div className="mt-6 space-y-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[4fr_6fr]">
+            <Card title="Execução das metas" subtitle="Realizado sobre o contratado" accent={color} className="min-w-0">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="min-w-0">
+                  <RadialGauge value={escutasPct} label="Escutas" color={color} height={150} />
+                  <p className="mt-1 text-center text-xs font-bold">Escutas</p>
+                  <p className="truncate text-center text-[10px] text-[var(--muted)]">{fn(t.escutas)} / {formatNumber(g.metricGoal)}</p>
+                </div>
+                {/* Investimento sem dado realizado: mensagem fixa do contratado */}
+                <div className="flex min-w-0 flex-col items-center justify-center rounded-xl border border-dashed border-[var(--border)] bg-[var(--bg-soft)] p-3 text-center">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--muted)]">Investimento contratado</p>
+                  <p className="mt-1 text-xl font-extrabold tabular-nums text-[var(--ink)]">{fcc(g.investimento)}</p>
+                  <p className="mt-1 text-[10px] leading-snug text-[var(--muted)]">Base sem coluna de investimento — exibindo o valor do plano de mídia.</p>
+                </div>
+              </div>
+            </Card>
+
+            <AnalysisBox title={`Análise — ${platform}`} accent={color}>
+              <p className="text-sm text-[var(--ink)]">Campanha de {g.estrategia} no {platform}. A base traz só entrega diária (impressões, cliques e áudios completos), sem demografia nem custo por linha.</p>
+              <Insight label="Escutas / meta" value={`${fn(t.escutas)} · ${fp(escutasPct)}`} color={color} />
+              <Insight label="Taxa de conclusão" value={fp(completionRate)} color={CAMA.verde} />
+              <Insight label="CTR" value={fp(ctr)} color={CAMA.vermelho} />
+              <Insight label="Investimento contratado" value={fcc(g.investimento)} color={CAMA.amareloOuro} />
+            </AnalysisBox>
+          </div>
+
+          <Card title="Evolução diária" subtitle="Entrega por dia" accent={color} className="min-w-0">
+            <TimeSeries data={daily} series={[
+              { key: "escutas", label: "Escutas", color: color, kind: "int" },
+              { key: "impressoes", label: "Impressões", color: CAMA.roxo, kind: "int" },
+              { key: "cliques", label: "Cliques", color: CAMA.vermelho, kind: "int" },
+            ]} height={280} />
+          </Card>
+        </div>
+      )}
     </>
   );
 }
